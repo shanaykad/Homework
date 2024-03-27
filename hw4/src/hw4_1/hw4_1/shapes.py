@@ -1,78 +1,113 @@
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist
 from turtlesim.msg import Pose
-import math
-import time
+from geometry_msgs.msg import Twist
+from turtlesim.srv import Spawn, Kill, TeleportAbsolute
+import math, time
 
-class DrawShapes(Node):
+class Geometry(Node):
     def __init__(self):
         super().__init__('draw_shapes')
-        self.publisher_ = self.create_publisher(Twist, 'turtle1/cmd_vel', 10)
-        self.subscription = self.create_subscription(
-            Pose,
-            'turtle1/pose',
-            self.pose_callback,
-            10)
-        self.subscription  # prevent unused variable warning
-        self.timer = self.create_timer(1.0, self.draw_shapes)
-        self.current_shape_index = 0
-        self.shapes = [
-            ('triangle', [(1, 1), (4, 1), (2.5, 4), (1, 1)]),  # Quadrant 1
-            ('square', [(6, 1), (9, 1), (9, 4), (6, 4), (6, 1)]),  # Quadrant 2
-            ('decagon', [(1, 6), (3, 7), (5, 8), (7, 9), (9, 9), (11, 9), (13, 8), (15, 7), (17, 6), (19, 6), (1, 6)]),  # Quadrant 3
-            ('circle', self.generate_circle_points(15, 15, 2, 20))  # Quadrant 4, adjust circle coordinates and size
-        ]
+        self.teleport_client = self.create_client(TeleportAbsolute, 'turtlesim4/turtle1/teleport_absolute')
+        self.spawn_client = self.create_client(Spawn, 'spawn')
+        self.kill_client = self.create_client(Kill, 'kill')
+        # while not self.spawn_client.wait_for_service(timeout_sec=1.0):
+        #     self.get_logger().info('spawn service not available, waiting again...')
+        # while not self.kill_client.wait_for_service(timeout_sec=1.0):
+        #     self.get_logger().info('kill service not available, waiting again...')
+        # while not self.teleport_client.wait_for_service(timeout_sec=1.0):
+        #     self.get_logger().info('teleport service not available, waiting again...')
+        # self.spawn_turtle()
+            
+        self.publisher_tri = self.create_publisher(Twist, 'turtlesim1/turtle1/cmd_vel', 10)
+        self.publisher_squ = self.create_publisher(Twist, 'turtlesim2/turtle1/cmd_vel', 10)
+        self.publisher_dec = self.create_publisher(Twist, 'turtlesim3/turtle1/cmd_vel', 10)
+        self.publisher_cir = self.create_publisher(Twist, 'turtlesim4/turtle1/cmd_vel', 10)
 
-    def pose_callback(self, data):
-        # Do nothing with pose
-        pass
+    def teleport_absolute(self, x, y, theta):
+        request = TeleportAbsolute.Request()
+        request.x = x
+        request.y = y
+        request.theta = theta
+        self.teleport_client.call_async(request)
 
-    def draw_shapes(self):
-        if self.current_shape_index >= len(self.shapes):
-            self.timer.cancel()
-            self.get_logger().info('All shapes drawn.')
-            return
+    def spawn_turtle(self, x, y, name):
+        request = Spawn.Request()
+        request.x = x
+        request.y = y
+        request.theta = 0.0
+        request.name = name
+        self.spawn_client.call_async(request)
 
-        shape_name, points = self.shapes[self.current_shape_index]
-        self.get_logger().info(f'Drawing {shape_name}...')
+    def kill_turtle(self, turtle_name):
+        request = Kill.Request()
+        request.name = turtle_name
+        self.kill_client.call_async(request)
 
-        for point_index in range(len(points) - 1):
-            start_point = points[point_index]
-            end_point = points[point_index + 1]
-            self.draw_line(start_point, end_point)
+    def draw_triangle(self):
+        # self.spawn_turtle(1.0, 8.0, 'triangleturtle')
+        msg = Twist()
+        i=1
+        for i in range (3):
+            msg.linear.x = 0.5
+            msg.angular.z = 0.0
+            self.publisher_tri.publish(msg)
+            time.sleep(3)
+            msg.linear.x = 0.0
+            msg.angular.z = math.pi/1.5
+            self.publisher_tri.publish(msg)
+            time.sleep(1)
+            i = i + 1
+        # self.kill_turtle('triangleturtle')
 
-        self.current_shape_index += 1
+    def draw_square(self):
+        self.spawn_turtle(1.0, 8.0, 'squareturtle')
+        msg = Twist()
+        i=1
+        for i in range (4):
+            msg.linear.x = 0.5
+            msg.angular.z = 0.0
+            self.publisher_squ.publish(msg)
+            time.sleep(4)
+            msg.linear.x = 0.0
+            msg.angular.z = math.pi/2
+            self.publisher_squ.publish(msg)
+            time.sleep(1)
+            i = i + 1
+        self.kill_turtle('squareturtle')
+    
+    def draw_decagon(self):
+        self.spawn_turtle(1.0, 8.0, 'decagonturtle')
+        msg = Twist()
+        i=1
+        for i in range (10):
+            msg.linear.x = 0.5
+            msg.angular.z = 0.0
+            self.publisher_dec.publish(msg)
+            time.sleep(2)
+            msg.linear.x = 0.0
+            msg.angular.z = math.pi/5
+            self.publisher_dec.publish(msg)
+            time.sleep(1)
+            i = i + 1
+        self.kill_turtle('decagonturtle')
 
-    def draw_line(self, start_point, end_point):
-        twist = Twist()
-        twist.linear.x = float(end_point[0] - start_point[0])
-        twist.linear.y = float(end_point[1] - start_point[1])
-        distance = math.sqrt(twist.linear.x ** 2 + twist.linear.y ** 2)
-        twist.linear.x /= distance
-        twist.linear.y /= distance
-        twist.angular.z = 0.0  # Ensure angular component is float
+    def draw_circle(self):
+        self.teleport_absolute(2.5, 6.0, 0.0)
+        msg = Twist()
+        msg.linear.x = 0.5
+        msg.angular.z = 0.5
+        self.publisher_cir.publish(msg)
+        time.sleep(2*math.pi/msg.angular.z)
 
-        # Publish the twist command
-        self.publisher_.publish(twist)
-        self.get_logger().info(f'Drawn line from {start_point} to {end_point}')
-
-        # Sleep to give the turtle time to move
-        time.sleep(1)  # Adjust the delay as needed (1 second in this example)
-
-    def generate_circle_points(self, center_x, center_y, radius, num_points):
-        points = []
-        for i in range(num_points):
-            angle = 2 * math.pi * i / num_points
-            x = center_x + radius * math.cos(angle)
-            y = center_y + radius * math.sin(angle)
-            points.append((x, y))
-        points.append(points[0])  # Close the circle
-        return points
 
 def main(args=None):
     rclpy.init(args=args)
-    draw_shapes = DrawShapes()
+
+    draw_shapes = Geometry()
+    # draw_shapes.kill_turtle('turtle1')
+    draw_shapes.draw_circle()
+
     rclpy.spin(draw_shapes)
     draw_shapes.destroy_node()
     rclpy.shutdown()
