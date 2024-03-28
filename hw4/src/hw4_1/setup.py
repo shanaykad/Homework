@@ -25,7 +25,8 @@ setup(
         'console_scripts': [
             "geometry = hw4_1.geometry:main",
             "geometrybonus = hw4_1.geometrybonus:main",
-            "shapes = hw4_1.shapes:main"
+            "shapes = hw4_1.shapes:main",
+            "singleturtle = hw4_1.singleturtle:main",
         ],
     },
 )
