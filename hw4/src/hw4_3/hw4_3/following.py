@@ -6,7 +6,7 @@ import math, time
 
 class SingleTurtle(Node):
     def __init__(self):
-        super().__init__('singleturtle')
+        super().__init__('')
         self.teleport_abs_client = self.create_client(TeleportAbsolute, 'turtle1/teleport_absolute')
         while not self.teleport_abs_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('abs teleport service not available, waiting again...')

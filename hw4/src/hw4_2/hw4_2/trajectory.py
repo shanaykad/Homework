@@ -55,9 +55,12 @@ class DrawFunction(Node):
             return
         msg = Twist()
         self.vx = 1.0
-        self.vy = self.k
+        self.vy = 0.0
         msg.linear.x = self.vx
-        msg.linear.y = self.vy
+        if self.x < (-5.544/self.k):
+            msg.linear.y = 0.0
+        elif self.x > (-5.544/self.k):
+            msg.linear.y = self.k
         self.publisher_.publish(msg)
         if self.x > 5.5:
                 self.reset_turtle()
@@ -73,6 +76,8 @@ class DrawFunction(Node):
         self.vy = self.k*3*self.x**2
         msg.linear.x = self.vx
         msg.linear.y = self.vy
+        if self.x < (-1*(5.544/self.k)**(1./3)):
+            msg.linear.y = 0.0
         self.publisher_.publish(msg)
         if self.x > 5.5:
                 self.reset_turtle()
@@ -103,7 +108,7 @@ class DrawFunction(Node):
             y = func(x) + 5.544
             time.sleep(1)
             self.setpen(1)
-            self.teleport_absolute(x + 5.544, y, 0.0)
+            self.teleport_absolute(0.0, 0.0, 0.0)
             self.setpen(0)
             self.active_function = 'Linear'
 
@@ -111,9 +116,10 @@ class DrawFunction(Node):
             func = lambda x: self.k*x**3
             x = -1*(5.544/self.k)**(1./3)
             y = func(x) + 5.544
+            # print('initial x: ' + str(x + 5.544))
             time.sleep(1)
             self.setpen(1)
-            self.teleport_absolute(x + 5.5, y, 0.0)
+            self.teleport_absolute(0.0 , 0.0, 0.0)
             self.setpen(0)
             self.active_function = 'Cubic'
             
@@ -165,16 +171,8 @@ def main(args=None):
     rclpy.init(args=args)
 
     draw_func = DrawFunction()
-    # draw_func.teleport_absolute(0.0, 0.0, 0.0)
-    # draw_func.clear_bg()
-    # draw_func.active_function = 'Sine'
+
     draw_func.draw_function('Linear')
-    # draw_func.teleport_absolute(0.0, 0.0, 0.0)
-    # draw_func.clear_bg()
-    # draw_func.draw_function(lambda x: x**3)
-    # draw_func.teleport_absolute(0.0, 0.0, 0.0)
-    # draw_func.clear_bg()
-    # draw_func.draw_function(lambda x: math.sin(x))
 
     rclpy.spin(draw_func)
     draw_func.destroy_node()
