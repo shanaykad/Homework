@@ -54,13 +54,8 @@ class DrawFunction(Node):
         if not self.active_function == 'Linear':
             return
         msg = Twist()
-        self.vx = 1.0
-        self.vy = 0.0
-        msg.linear.x = self.vx
-        if self.x < (-5.544/self.k):
-            msg.linear.y = 0.0
-        elif self.x > (-5.544/self.k):
-            msg.linear.y = self.k
+        msg.linear.x = 1.0
+        msg.linear.y = self.k
         self.publisher_.publish(msg)
         if self.x > 5.5:
                 self.reset_turtle()
@@ -86,6 +81,8 @@ class DrawFunction(Node):
                 self.draw_function('Sine')
         
     def sine_timer_callback(self):
+        if not self.active_function == 'Sine':
+                return
         if self.active_function == 'Sine':
             msg = Twist()
             self.vx = 1.0
@@ -108,7 +105,7 @@ class DrawFunction(Node):
             y = func(x) + 5.544
             time.sleep(1)
             self.setpen(1)
-            self.teleport_absolute(0.0, 0.0, 0.0)
+            self.teleport_absolute(x + 5.544, 0.0, 0.0)
             self.setpen(0)
             self.active_function = 'Linear'
 
