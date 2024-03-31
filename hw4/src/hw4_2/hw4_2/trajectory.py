@@ -33,8 +33,8 @@ class DrawFunction(Node):
         while not self.kill_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('kill service not available, waiting again...')
 
-        self.publisher_ = self.create_publisher(Twist, 'turtle1/cmd_vel', 10)
-        self.subscriber_ = self.create_subscription(Pose, 'turtle1/pose', self.pose_callback, 10)
+        self.publisher_ = self.create_publisher(Twist, 'turtle1/cmd_vel', 3)
+        self.subscriber_ = self.create_subscription(Pose, 'turtle1/pose', self.pose_callback, 3)
         
         self.timer1 = self.create_timer(0.1, self.linear_timer_callback)
         self.timer2 = self.create_timer(0.1, self.cubic_timer_callback)
@@ -43,12 +43,18 @@ class DrawFunction(Node):
         self.active_function = 'None'
         self.x = 0.0
         self.y = 0.0
-        self.k = 1.0
-        self.w = 1.0
+        # self.k = 1.0
+        # self.w = 1.0
+        self.declare_parameter('k', 1.0)
+        self.declare_parameter('w', 1.0)
+        self.k = self.get_parameter('k').value
+        self.w = self.get_parameter('w').value
 
     def pose_callback(self, msg):
         self.x = msg.x - 5.444
         self.y = msg.y - 5.444
+        self.k = self.get_parameter('k').value
+        self.w = self.get_parameter('w').value
 
     def linear_timer_callback(self):
         if not self.active_function == 'Linear':
