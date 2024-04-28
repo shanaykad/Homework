@@ -3,6 +3,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 from rcl_interfaces.msg import ParameterDescriptor
 from geometry_msgs.msg import Twist
+import numpy as np
 
 
 class FollowWalls(Node):
@@ -22,14 +23,14 @@ class FollowWalls(Node):
 
     def scan_callback(self, msg):
         self.distances = msg.ranges
+        # print('left dist ' + str(self.distances[89])) # left
+        # print('front dist ' + str(self.distances[0])) # front
+        # print('right dist ' + str(self.distances[269])) # right
+        # print('original to current ' + str(abs(self.walldist - self.distances[89])))
+        # print('diagonal diff ' + str(abs(self.distances[89-30] - self.distances[89+30])))
+        # print('diagonal left ' + str(abs(self.distances[89+30])))
+        # print('diagonal right ' + str(abs(self.distances[89-30])))
         if len(self.distances) > 10 and self.progress == 0:
-            # print('left dist ' + str(self.distances[89])) # left
-            # print('front dist ' + str(self.distances[0])) # front
-            # print('right dist ' + str(self.distances[269])) # right
-            # print('original to current ' + str(abs(self.walldist - self.distances[89])))
-            # print('diagonal diff ' + str(abs(self.distances[89-30] - self.distances[89+30])))
-            # print('diagonal left ' + str(abs(self.distances[89+30])))
-            # print('diagonal right ' + str(abs(self.distances[89-30])))
             self.progress = 1
         if self.progress == 1:
             self.moveForward()
@@ -49,7 +50,7 @@ class FollowWalls(Node):
             self.publisher.publish(msg)
             self.progress = 2
 
-    def turnRight(self):
+    def turnRight0(self):
         msg = Twist()
         msg.angular.z = -0.1
         self.publisher.publish(msg)
@@ -64,7 +65,7 @@ class FollowWalls(Node):
             self.walldist == 0
 
 
-    def turnRight2(self):
+    def turnRight1(self):
         msg = Twist()
         if self.initiated == 0:
             self.ogdisttowall = self.distances[0]
@@ -83,7 +84,7 @@ class FollowWalls(Node):
                 self.progress = 1
                 self.initiated = 0
 
-    def turnRight3(self):
+    def turnRight(self):
         msg = Twist()
         if self.initiated == 0:
             msg.angular.z = -0.5
@@ -92,12 +93,25 @@ class FollowWalls(Node):
             self.initiated = 1
         msg.angular.z = -0.3
         self.publisher.publish(msg)
-        if abs(self.distances[89-20] - self.distances[89+20]) < 0.1:
-            msg.angular.z = -0.05
+        leftavg = self.getAverage(self.distances, 109, 5)
+        rightavg = self.getAverage(self.distances, 69, 5)
+        if abs(rightavg - leftavg) < 0.1:
+            msg.angular.z = -0.02
             self.publisher.publish(msg)
-            if abs(self.distances[89-20] - self.distances[89+20]) < 0.015 and self.distances[89] < 0.55:
+            if abs(rightavg - leftavg) < 0.01 and self.distances[89] < 0.52:
                 self.progress = 1
                 self.initiated = 0
+
+    def getAverage(self, list, middleentry, range):
+        average = sum(list[middleentry-range:middleentry+range]) / (2*range+1)
+        return average
+    
+    def expected_avg(max):
+        sum = 0
+        for theta in range(-max, max):
+            sum += .5/np.acos(theta)
+
+        return sum/max
 
 
 def main(args=None):
