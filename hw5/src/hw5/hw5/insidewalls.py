@@ -1,38 +1,35 @@
-import rclpy, time, random, math
+import rclpy, time
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
-from rcl_interfaces.msg import ParameterDescriptor
 from geometry_msgs.msg import Twist
-import numpy as np
-
 
 class FollowWalls(Node):
-
-    # 0 # has started, hasn't recieved lidar data yet
-    # 1 # recieved data, move forward until wall
-    # 2 # reached wall, turn
 
     def __init__(self):
         super().__init__('hw5')
         self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         self.scan_sub = self.create_subscription(LaserScan, '/scan', self.scan_callback, 10)
-        # self.timer = self.create_timer(0.5, self.timer_callback)
         self.distances = []
-        self.progress = 0
-        self.initiated = 0
-        self.ogdisttowall = 0
-        self.walldist = 0
-        self.reachedwall = 0
+        self.progress = 0 # 0: has started, hasn't recieved lidar data yet, 1: recieved data, move forward until wall, 2: reached wall, turn
+        self.initiated = 0 # boolean variable
+        self.reachedwall = 0 # boolean variable
 
-    def timer_callback(self):
-        pass
+        self.declare_parameter('traveldist', 0.0)
+        self.traveldist = self.get_parameter('traveldist').value
+
+        self.declare_parameter('direction', 0) # -1 for CW, 1 for CCW
+        self.direction = self.get_parameter('direction').value
+
+        if self.direction == -1:
+            self.scandirection = 89
+        elif self.direction == 1:
+            self.scandirection = 269
 
     def scan_callback(self, msg):
         self.distances = msg.ranges
         # print('left dist ' + str(self.distances[89])) # left
         # print('front dist ' + str(self.distances[0])) # front
         # print('right dist ' + str(self.distances[269])) # right
-        # print('original to current ' + str(abs(self.walldist - self.distances[89])))
         # print('diagonal diff ' + str(abs(self.distances[89-30] - self.distances[89+30])))
         # print('diagonal left ' + str(abs(self.distances[89+30])))
         # print('diagonal right ' + str(abs(self.distances[89-30])))
@@ -41,7 +38,7 @@ class FollowWalls(Node):
         if self.progress == 1:
             self.moveForward()
         if self.progress == 2:
-            self.turnRight()
+            self.turn()
             
 
     def moveForward(self):
@@ -49,10 +46,10 @@ class FollowWalls(Node):
         msg = Twist()
         msg.linear.x = 0.5
         self.publisher.publish(msg)
-        if self.distances[0] < 2:
+        if self.distances[0] < 2: # Slows down when close to wall
             msg.linear.x = 0.2
             self.publisher.publish(msg)
-        if abs(0.5-self.distances[0]) < 0.1: # 20% tolerance
+        if abs(self.traveldist-self.distances[0]) < 0.2*self.traveldist: # 20% tolerance
             msg.linear.x = 0.0
             self.publisher.publish(msg)
             self.progress = 2
@@ -63,21 +60,12 @@ class FollowWalls(Node):
     def corrector(self):
         msg =  Twist()
 
-        angvel = 0.2
+        angvel = 0.2*self.direction
         linvel = 0.5
-        if self.distances[0] < 2:
+
+        if self.distances[0] < 0.2*self.traveldist: # Prevents correction during turning
             pass
-        elif self.min_subarray(self.distances, 89, 80) < 0.4:
-            print('Correcting!')
-            msg.angular.z = -angvel
-            msg.linear.x = linvel
-            self.publisher.publish(msg)
-            time.sleep(0.5)
-            msg.angular.z = angvel
-            msg.linear.x = linvel
-            self.publisher.publish(msg)
-            time.sleep(0.3)
-        elif self.min_subarray(self.distances, 89, 80) > 0.6:
+        elif self.listMin(self.distances, self.scandirection, 80) < 0.8*self.traveldist: # Corrects when too close to wall
             print('Correcting!')
             msg.angular.z = angvel
             msg.linear.x = linvel
@@ -87,109 +75,41 @@ class FollowWalls(Node):
             msg.linear.x = linvel
             self.publisher.publish(msg)
             time.sleep(0.3)
-
-
-    def corrector2(self):
-        msg = Twist()
-
-        movespeed = 0.2
-        rotatespeed = 0.2
-        timeslept = 0.2
-
-        if self.min_subarray(self.distances, 89, 80) < 0.4:
+        elif self.listMin(self.distances, self.scandirection, 80) > 1.2*self.traveldist: # Corrects when too far from wall
             print('Correcting!')
-            msg.angular.z = -rotatespeed
-            msg.linear.x = movespeed
+            msg.angular.z = -angvel
+            msg.linear.x = linvel
             self.publisher.publish(msg)
-            time.sleep(timeslept)
-            msg.angular.z = rotatespeed/2
-            msg.linear.x = 0.0
+            time.sleep(0.5)
+            msg.angular.z = angvel
+            msg.linear.x = linvel
             self.publisher.publish(msg)
-            time.sleep(timeslept)
-            msg.angular.z = 0.0
-            msg.linear.x = 0.5
-            self.publisher.publish(msg)
-        elif self.min_subarray(self.distances, 89, 80) > 0.6:
-            print('Correcting!')
-            msg.angular.z = rotatespeed
-            msg.linear.x = movespeed
-            self.publisher.publish(msg)
-            time.sleep(timeslept)
-            msg.angular.z = -rotatespeed/2
-            msg.linear.x = 0.0
-            self.publisher.publish(msg)
-            time.sleep(timeslept)
-            msg.angular.z = 0.0
-            msg.linear.x = 0.5
-            self.publisher.publish(msg)
-        
-        
+            time.sleep(0.3)        
 
-    def turnRight0(self):
-        msg = Twist()
-        msg.angular.z = -0.1
-        self.publisher.publish(msg)
-        time.sleep(1)
-        # print('walldist ' + str(self.walldist))
-        # print('left dist ' + str(self.distances[89])) # left
-        print('diagonal left ' + str(abs(self.distances[89+30])))
-        print('diagonal right ' + str(abs(self.distances[89-30])))
-        print('diagonal diff ' + str(abs(self.distances[89-30] - self.distances[89+30])))
-        if self.distances[89+30] - self.distances[89-30] < 0.03:
-            self.progress = 1
-            self.walldist == 0
-
-
-    def turnRight1(self):
-        msg = Twist()
-        if self.initiated == 0:
-            self.ogdisttowall = self.distances[0]
-            msg.angular.z = -0.5
-            self.publisher.publish(msg)
-            print('initiated')
-            time.sleep(1)
-            self.initiated = 1
-        print(abs(self.distances[89] - self.ogdisttowall))
-        msg.angular.z = -0.3
-        self.publisher.publish(msg)
-        if abs(self.distances[89] - self.ogdisttowall) < 0.05:
-            msg.angular.z = -0.05
-            self.publisher.publish(msg)
-            if abs(self.distances[89] - self.ogdisttowall) < 0.015:
-                self.progress = 1
-                self.initiated = 0
-
-    def turnRight(self):
+    def turn(self):
         print('Turning!')
         msg = Twist()
         if self.initiated == 0:
-            msg.angular.z = -0.5
+            msg.angular.z = 0.5*self.direction
             self.publisher.publish(msg)
             time.sleep(1)
             self.initiated = 1
-        msg.angular.z = -0.3
+        msg.angular.z = 0.3*self.direction
         self.publisher.publish(msg)
-        leftavg = self.getAverage(self.distances, 109, 5)
-        rightavg = self.getAverage(self.distances, 69, 5)
-        if abs(rightavg - leftavg) < 0.1:
-            msg.angular.z = -0.08
+        leftavg = self.getAverage(self.distances, self.scandirection+20, 5)
+        rightavg = self.getAverage(self.distances, self.scandirection-20, 5)
+        if abs(rightavg - leftavg) < 0.2*self.traveldist: # Slows down when turn is close to completion
+            msg.angular.z = 0.08*self.direction
             self.publisher.publish(msg)
-            if abs(rightavg - leftavg) < 0.01 and self.distances[89] < 0.52:
+            if abs(rightavg - leftavg) < self.traveldist*0.02 and self.distances[self.scandirection] < 1.1*self.traveldist: # Ensures turn is complete when tb3 is facing roughly parallel to wall and is an appropriate distance away from the wall (10% tolerance)
                 self.progress = 1
                 self.initiated = 0
 
-    def getAverage(self, list, middleentry, range):
+    def getAverage(self, list, middleentry, range): # Average of a portion of a list
         average = sum(list[middleentry-range:middleentry+range]) / (2*range+1)
         return average
     
-    def expected_avg(max):
-        sum = 0
-        for theta in range(-max, max):
-            sum += .5/np.acos(theta)
-
-        return sum/max
-    
-    def min_subarray(self, array, mid, range):
+    def listMin(self, array, mid, range): # Minimum value from a portion of a list
         return min(array[mid - range:mid + range + 1]) 
 
 

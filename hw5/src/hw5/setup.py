@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             "insidewalls = hw5.insidewalls:main",
+            "outsidewalls = hw5.outsidewalls:main",
         ],
     },
 )

@@ -23,6 +23,7 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -67,9 +68,16 @@ def generate_launch_description():
             'x_pose': x_pose,
             'y_pose': y_pose
         }.items()
+        
     )
 
-    ld = LaunchDescription()
+    ld = LaunchDescription([Node(
+            package='hw5',
+            executable='insidewalls',
+            parameters=[
+                {'traveldist': 0.5, 'direction': -1} # For Direction: -1 for CW, 1 for CCW
+            ]            
+        )])
 
     # Add the commands to the launch description
     ld.add_action(gzserver_cmd)
