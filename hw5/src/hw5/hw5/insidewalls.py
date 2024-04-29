@@ -7,6 +7,11 @@ import numpy as np
 
 
 class FollowWalls(Node):
+
+    # 0 # has started, hasn't recieved lidar data yet
+    # 1 # recieved data, move forward until wall
+    # 2 # reached wall, turn
+
     def __init__(self):
         super().__init__('hw5')
         self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -17,6 +22,7 @@ class FollowWalls(Node):
         self.initiated = 0
         self.ogdisttowall = 0
         self.walldist = 0
+        self.reachedwall = 0
 
     def timer_callback(self):
         pass
@@ -43,12 +49,71 @@ class FollowWalls(Node):
         msg.linear.x = 0.5
         self.publisher.publish(msg)
         if self.distances[0] < 1:
-            msg.linear.x = 0.1
+            msg.linear.x = 0.2
             self.publisher.publish(msg)
         if abs(0.5-self.distances[0]) < 0.025: # 5% tolerance
             msg.linear.x = 0.0
             self.publisher.publish(msg)
             self.progress = 2
+            self.reachedwall = 1
+        if self.reachedwall == 1:
+            self.corrector()
+
+    def corrector(self):
+        msg =  Twist()
+
+        angvel = 0.2
+        linvel = 0.5
+
+        if self.min_subarray(self.distances, 89, 80) < 0.4:
+            msg.angular.z = -angvel
+            msg.linear.x = linvel
+            time.sleep(0.5)
+            msg.angular.z = angvel/2
+            msg.linear.x = linvel
+            time.sleep(0.3)
+        elif self.min_subarray(self.distances, 89, 80) > 0.6:
+            msg.angular.z = angvel
+            msg.linear.x = linvel
+            time.sleep(0.5)
+            msg.angular.z = -angvel/2
+            msg.linear.x = linvel
+            time.sleep(0.3)
+
+
+    def corrector2(self):
+        msg = Twist()
+
+        movespeed = 0.2
+        rotatespeed = 0.2
+        timeslept = 0.2
+
+        if self.min_subarray(self.distances, 89, 80) < 0.4:
+            msg.angular.z = -rotatespeed
+            msg.linear.x = movespeed
+            self.publisher.publish(msg)
+            time.sleep(timeslept)
+            msg.angular.z = rotatespeed/2
+            msg.linear.x = 0.0
+            self.publisher.publish(msg)
+            time.sleep(timeslept)
+            msg.angular.z = 0.0
+            msg.linear.x = 0.5
+            self.publisher.publish(msg)
+        elif self.min_subarray(self.distances, 89, 80) > 0.6:
+            msg.angular.z = rotatespeed
+            msg.linear.x = movespeed
+            self.publisher.publish(msg)
+            time.sleep(timeslept)
+            msg.angular.z = -rotatespeed/2
+            msg.linear.x = 0.0
+            self.publisher.publish(msg)
+            time.sleep(timeslept)
+            msg.angular.z = 0.0
+            msg.linear.x = 0.5
+            self.publisher.publish(msg)
+        
+        
 
     def turnRight0(self):
         msg = Twist()
@@ -96,7 +161,7 @@ class FollowWalls(Node):
         leftavg = self.getAverage(self.distances, 109, 5)
         rightavg = self.getAverage(self.distances, 69, 5)
         if abs(rightavg - leftavg) < 0.1:
-            msg.angular.z = -0.02
+            msg.angular.z = -0.08
             self.publisher.publish(msg)
             if abs(rightavg - leftavg) < 0.01 and self.distances[89] < 0.52:
                 self.progress = 1
@@ -112,6 +177,9 @@ class FollowWalls(Node):
             sum += .5/np.acos(theta)
 
         return sum/max
+    
+    def min_subarray(self, array, mid, range):
+        return min(array[mid - range:mid + range + 1]) 
 
 
 def main(args=None):
