@@ -45,13 +45,14 @@ class FollowWalls(Node):
             
 
     def moveForward(self):
+        print('Moving Forward!')
         msg = Twist()
         msg.linear.x = 0.5
         self.publisher.publish(msg)
-        if self.distances[0] < 1:
+        if self.distances[0] < 2:
             msg.linear.x = 0.2
             self.publisher.publish(msg)
-        if abs(0.5-self.distances[0]) < 0.025: # 5% tolerance
+        if abs(0.5-self.distances[0]) < 0.1: # 20% tolerance
             msg.linear.x = 0.0
             self.publisher.publish(msg)
             self.progress = 2
@@ -64,20 +65,27 @@ class FollowWalls(Node):
 
         angvel = 0.2
         linvel = 0.5
-
-        if self.min_subarray(self.distances, 89, 80) < 0.4:
+        if self.distances[0] < 2:
+            pass
+        elif self.min_subarray(self.distances, 89, 80) < 0.4:
+            print('Correcting!')
             msg.angular.z = -angvel
             msg.linear.x = linvel
+            self.publisher.publish(msg)
             time.sleep(0.5)
-            msg.angular.z = angvel/2
-            msg.linear.x = linvel
-            time.sleep(0.3)
-        elif self.min_subarray(self.distances, 89, 80) > 0.6:
             msg.angular.z = angvel
             msg.linear.x = linvel
-            time.sleep(0.5)
-            msg.angular.z = -angvel/2
+            self.publisher.publish(msg)
+            time.sleep(0.3)
+        elif self.min_subarray(self.distances, 89, 80) > 0.6:
+            print('Correcting!')
+            msg.angular.z = angvel
             msg.linear.x = linvel
+            self.publisher.publish(msg)
+            time.sleep(0.5)
+            msg.angular.z = -angvel
+            msg.linear.x = linvel
+            self.publisher.publish(msg)
             time.sleep(0.3)
 
 
@@ -89,6 +97,7 @@ class FollowWalls(Node):
         timeslept = 0.2
 
         if self.min_subarray(self.distances, 89, 80) < 0.4:
+            print('Correcting!')
             msg.angular.z = -rotatespeed
             msg.linear.x = movespeed
             self.publisher.publish(msg)
@@ -101,6 +110,7 @@ class FollowWalls(Node):
             msg.linear.x = 0.5
             self.publisher.publish(msg)
         elif self.min_subarray(self.distances, 89, 80) > 0.6:
+            print('Correcting!')
             msg.angular.z = rotatespeed
             msg.linear.x = movespeed
             self.publisher.publish(msg)
@@ -150,6 +160,7 @@ class FollowWalls(Node):
                 self.initiated = 0
 
     def turnRight(self):
+        print('Turning!')
         msg = Twist()
         if self.initiated == 0:
             msg.angular.z = -0.5
